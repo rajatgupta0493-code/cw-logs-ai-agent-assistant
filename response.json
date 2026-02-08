@@ -1,1 +1,1 @@
-{"status": "error", "data": null, "error": {"type": "ValidationError", "message": "Missing required field: query"}}
+{"status": "success", "data": {"message": "Query started successfully.", "query_id": "39f96f10-ebe3-40f8-8002-060db09eaccf"}, "error": null}

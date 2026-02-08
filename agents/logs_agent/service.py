@@ -1,18 +1,22 @@
 from typing import Any, Dict
 
-from config_loader import load_config
 from exceptions import AgentExecutionError
+from cloudwatch_client import start_logs_query
 
 
 def execute(request: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        config = load_config()
+        response = start_logs_query(
+            region=request["region"],
+            log_groups=request["log_groups"],
+            query=request["query"],
+            start_time=request["start_time"],
+            end_time=request["end_time"],
+        )
 
-        # Placeholder for future CloudWatch logic
         return {
-            "message": "Logs Agent validated request successfully.",
-            "agent": config.get("agent_name"),
-            "request_received": request,
+            "message": "Query started successfully.",
+            "query_id": response.get("queryId"),
         }
 
     except Exception as exc:
