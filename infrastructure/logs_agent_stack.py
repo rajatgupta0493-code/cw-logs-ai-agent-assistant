@@ -17,7 +17,7 @@ class LogsAgentStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="handler.handler",
             code=_lambda.Code.from_asset("agents/logs_agent"),
-            memory_size=256,
+            memory_size=10240,
             timeout=Duration.minutes(15),
         )
 
@@ -26,7 +26,9 @@ class LogsAgentStack(Stack):
                 actions=[
                     "logs:StartQuery",
                     "logs:GetQueryResults",
+                    "bedrock:InvokeModel"
                 ],
                 resources=["*"],
             )
         )
+

@@ -7,14 +7,19 @@ from cloudwatch_client import (
     start_logs_query,
     get_query_results,
 )
+from config_loader import load_config
+from prompt_builder import build_prompt
+from bedrock_client import invoke_bedrock
+from summary_schema import validate_summary_schema
 
 
-MAX_WAIT_SECONDS = 600  # 10 minutes
+MAX_WAIT_SECONDS = 600
 POLL_INTERVAL_SECONDS = 3
 
 
 def execute(request: Dict[str, Any]) -> Dict[str, Any]:
     try:
+        config = load_config()
         client = get_logs_client(request["region"])
 
         start_response = start_logs_query(
@@ -34,10 +39,22 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
             status = response.get("status")
 
             if status == "Complete":
+                results = response.get("results", [])
+
+                limited_results = results[: config["max_records_for_summary"]]
+
+                prompt = build_prompt(limited_results)
+
+                ai_response = invoke_bedrock(
+                    model_id=config["inference_profile_id"],
+                    prompt=prompt,
+                )
+
+                validate_summary_schema(ai_response)
+
                 return {
                     "query_id": query_id,
-                    "results": response.get("results", []),
-                    "statistics": response.get("statistics", {}),
+                    "ai_summary": ai_response,
                 }
 
             if status in ["Failed", "Cancelled", "Timeout"]:

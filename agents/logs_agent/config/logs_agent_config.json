@@ -1,6 +1,6 @@
 {
   "agent_name": "logs_insights_agent",
-  "description": "CloudWatch Logs Insights summarization agent",
-  "max_query_timeout_seconds": 120,
-  "max_results_size_mb": 5
+  "inference_profile_id": "us.anthropic.claude-opus-4-6-v1",
+  "max_query_timeout_seconds": 600,
+  "max_records_for_summary": 500
 }
