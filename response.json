@@ -1,1 +1,1 @@
-{"status": "ok", "agent": "logs_insights_agent", "config": {"agent_name": "logs_insights_agent", "description": "CloudWatch Logs Insights summarization agent", "max_query_timeout_seconds": 120, "max_results_size_mb": 5}, "input_event": {"message": "test"}}
+{"status": "error", "data": null, "error": {"type": "ValidationError", "message": "Missing required field: query"}}
