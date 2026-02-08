@@ -1,0 +1,6 @@
+{
+  "agent_name": "logs_insights_agent",
+  "description": "CloudWatch Logs Insights summarization agent",
+  "max_query_timeout_seconds": 120,
+  "max_results_size_mb": 5
+}
