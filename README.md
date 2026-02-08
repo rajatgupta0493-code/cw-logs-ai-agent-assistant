@@ -1,32 +1,62 @@
 # CW Logs AI Agent Assistant
 
-Open source stateless AI agents for CloudWatch using AWS Lambda and Bedrock.
+Open-source, production-safe AI agents for Amazon CloudWatch.
+
+Built using:
+
+- AWS Lambda (Python 3.11)
+- AWS CDK (Python)
+- Amazon Bedrock (Claude Opus 4.6)
+- Direct CLI / SDK invocation
+- Stateless architecture
 
 ---
 
-# Project Status
+# ✅ Current Status (Phase 1 – Logs Agent)
 
-## Phase 1
+The CloudWatch Logs Insights Agent is fully functional end-to-end.
 
-Currently implemented:
+### What It Does
 
-- Logs Insights Agent (stub)
-- Structured input validation
-- Standardized response contract
-- Config-driven behavior
-- AWS CDK deployment (Python)
-- Direct invocation (CLI / SDK)
-
-No CloudWatch API calls yet.  
-No Bedrock integration yet.
+1. Validates input request
+2. Calls `StartQuery`
+3. Polls `GetQueryResults` (max 10 minutes)
+4. Limits records (configurable)
+5. Invokes Claude Opus 4.6 via Bedrock
+6. Enforces strict JSON output schema
+7. Returns structured AI summary
 
 ---
 
-# Architecture (Current)
+# 🏗 Architecture
 
-Lambda → Request Validation → Service Layer → Structured Response
+```
+Lambda
+  ↓
+Input Validation
+  ↓
+StartQuery
+  ↓
+Poll GetQueryResults
+  ↓
+Limit Results (configurable)
+  ↓
+Build Prompt
+  ↓
+Invoke Bedrock (Inference Profile)
+  ↓
+Strict JSON Extraction
+  ↓
+Schema Validation
+  ↓
+Structured AI Response
+```
 
-All responses follow this contract:
+---
+
+# 📦 Output Contract
+
+Every response follows:
 
 ```json
 {
@@ -41,144 +71,35 @@ All responses follow this contract:
 
 ---
 
-# Prerequisites
+# 🤖 AI Summary Schema (Strict)
 
-- Python 3.11
-- Node.js
-- AWS CLI configured
-- AWS CDK installed globally
-
-Install CDK:
-
-```bash
-npm install -g aws-cdk
-```
-
-Verify:
-
-```bash
-cdk --version
-```
-
----
-
-# Local Setup
-
-Create virtual environment:
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# Bootstrap CDK (First Time Only)
-
-```bash
-cdk bootstrap
-```
-
----
-
-# Deploy
-
-```bash
-cdk deploy
-```
-
-Confirm with `y` when prompted.
-
----
-
-# Find Lambda Function Name
-
-```bash
-aws lambda list-functions
-```
-
-Look for:
-
-```
-LogsAgentStack-LogsAgentLambdaXXXXX
-```
-
----
-
-# Invocation Examples
-
-## Valid Request
-
-```bash
-aws lambda invoke \
-  --function-name <FUNCTION_NAME> \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{
-    "region":"us-east-1",
-    "log_groups":["group1"],
-    "query":"fields @message",
-    "start_time":123,
-    "end_time":456
-  }' \
-  response.json
-```
-
-View response:
-
-```bash
-cat response.json
-```
-
-Expected:
+Claude MUST return:
 
 ```json
 {
-  "status": "success",
-  "data": {...},
-  "error": null
+  "summary": "string",
+  "total_records_analyzed": number,
+  "key_patterns": [],
+  "error_signals": [],
+  "observations": [],
+  "insufficient_data": false
 }
 ```
 
----
+Extra fields are rejected.
 
-## Missing Required Field
+Hallucinations are controlled by:
 
-```bash
-aws lambda invoke \
-  --function-name <FUNCTION_NAME> \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{
-    "region":"us-east-1",
-    "log_groups":["group1"],
-    "start_time":123,
-    "end_time":456
-  }' \
-  response.json
-```
-
-Expected:
-
-```json
-{
-  "status": "error",
-  "error": {
-    "type": "ValidationError",
-    "message": "Missing required field: query"
-  }
-}
-```
+- Strict prompt instructions
+- Low temperature (0.1)
+- Schema validation
+- JSON extraction hardening
 
 ---
 
-# Configuration
+# ⚙️ Configuration
 
-Configuration file location:
+File:
 
 ```
 agents/logs_agent/config/logs_agent_config.json
@@ -189,28 +110,139 @@ Example:
 ```json
 {
   "agent_name": "logs_insights_agent",
-  "description": "CloudWatch Logs Insights summarization agent",
-  "max_query_timeout_seconds": 120,
-  "max_results_size_mb": 5
+  "inference_profile_id": "us.anthropic.claude-opus-4-6-v1",
+  "max_query_timeout_seconds": 600,
+  "max_records_for_summary": 500
 }
+```
+
+You can modify:
+
+- Inference profile
+- Record limit
+- Query timeout
+
+No application logic changes required.
+
+---
+
+# 🚀 Deployment
+
+## Prerequisites
+
+- Python 3.11
+- Node.js
+- AWS CLI configured
+- AWS CDK installed
+
+Install CDK:
+
+```bash
+npm install -g aws-cdk
 ```
 
 ---
 
-# Roadmap
+## Setup Virtual Environment
 
-- Commit 3 → Add CloudWatch Logs API scaffold
-- Commit 4 → Add polling lifecycle
-- Commit 5 → Add Bedrock integration
-- Commit 6 → Add structured summarization schema
-- Commit 7 → Add Metrics agent
-- Commit 8 → Add Alarms agent
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 ---
 
-# Contribution Model
+## Bootstrap (First Time Only)
 
-- Small commits
-- Fully deployable at each step
-- Testable before moving forward
-- No premature optimization
+```bash
+cdk bootstrap
+```
+
+---
+
+## Deploy
+
+```bash
+cdk deploy
+```
+
+Confirm with `y`.
+
+---
+
+# 🧪 Invocation Example
+
+```bash
+START_TIME=$(($(date +%s) - 3600))
+END_TIME=$(date +%s)
+
+aws lambda invoke \
+  --function-name <FUNCTION_NAME> \
+  --cli-binary-format raw-in-base64-out \
+  --payload "{
+    \"region\":\"us-east-1\",
+    \"log_groups\":[\"cw-agent-test-group\"],
+    \"query\":\"fields @message | sort @timestamp desc\",
+    \"start_time\":$START_TIME,
+    \"end_time\":$END_TIME
+  }" \
+  response.json
+```
+
+View output:
+
+```bash
+cat response.json
+```
+
+---
+
+# 🔐 IAM Permissions Used
+
+- logs:StartQuery
+- logs:GetQueryResults
+- bedrock:InvokeModel
+
+Currently scoped to `*` (will be tightened later).
+
+---
+
+# ⏱ Time Constraints
+
+- Lambda timeout: 15 minutes
+- Query polling max: 10 minutes
+- Poll interval: 3 seconds
+
+---
+
+# 🛡 Safety & Guardrails
+
+- Strict JSON-only AI responses
+- Markdown stripping + JSON extraction
+- Schema validation
+- Deterministic response contract
+- Record limit before sending to LLM
+
+---
+
+# 📈 Roadmap
+
+Next:
+
+- Retry-on-invalid JSON
+- Prompt token size guardrail
+- Structured logging
+- Metrics Agent
+- Alarms Agent
+- Multi-agent modularization
+
+---
+
+# 🔓 Open Source Goals
+
+- Fully configurable
+- Replace queries without code changes
+- Replace inference profile without code changes
+- Minimal dependencies
+- Production-safe invocation patterns
