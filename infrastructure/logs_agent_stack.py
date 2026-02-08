@@ -18,12 +18,15 @@ class LogsAgentStack(Stack):
             handler="handler.handler",
             code=_lambda.Code.from_asset("agents/logs_agent"),
             memory_size=256,
-            timeout=Duration.seconds(30),
+            timeout=Duration.minutes(15),
         )
 
         function.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["logs:StartQuery"],
+                actions=[
+                    "logs:StartQuery",
+                    "logs:GetQueryResults",
+                ],
                 resources=["*"],
             )
         )
