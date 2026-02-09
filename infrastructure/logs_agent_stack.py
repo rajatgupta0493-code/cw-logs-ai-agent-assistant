@@ -30,6 +30,26 @@ class LogsAgentStack(Stack):
             timeout=Duration.minutes(15),
         )
 
+        metrics_function = _lambda.Function(
+            self,
+            "MetricsAgentFunction",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="agents.metrics_agent.handler.handler",
+            code=_lambda.Code.from_asset(
+                ".",
+                exclude=[
+                    "cdk.out",
+                    ".venv",
+                    ".git",
+                    "node_modules",
+                    "__pycache__",
+                    "*.pyc",
+                ],
+            ),
+            memory_size=10240,
+            timeout=Duration.minutes(15),
+)
+
         function.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
@@ -40,4 +60,14 @@ class LogsAgentStack(Stack):
                 resources=["*"],
             )
         )
+
+        metrics_function.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cloudwatch:GetMetricData",
+                ],
+                resources=["*"],
+            )
+        )
+
 

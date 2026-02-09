@@ -1,0 +1,1 @@
+{"status": "success", "data": {"metrics": [{"Id": "cpu1", "Label": "Invocations", "Timestamps": [], "Values": [], "StatusCode": "PartialData"}]}, "error": null}

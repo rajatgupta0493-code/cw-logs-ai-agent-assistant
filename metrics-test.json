@@ -1,0 +1,18 @@
+{
+  "region": "us-east-1",
+  "metric_queries": [
+    {
+      "id": "cpu1",
+      "namespace": "AWS/Lambda",
+      "metric_name": "Invocations",
+      "dimensions": [
+        { "Name": "FunctionName", "Value": "LogsAgentFunction" }
+      ],
+      "stat": "Sum",
+      "period": 300
+    }
+  ],
+  "start_time": 1700000000,
+  "end_time": 2000000000
+}
+
