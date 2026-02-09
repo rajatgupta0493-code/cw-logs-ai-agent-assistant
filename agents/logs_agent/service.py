@@ -1,4 +1,5 @@
 import time
+import json
 from typing import Any, Dict
 
 from exceptions import AgentExecutionError
@@ -13,7 +14,7 @@ from bedrock_client import invoke_bedrock
 from summary_schema import validate_summary_schema
 
 
-MAX_WAIT_SECONDS = 600
+MAX_WAIT_SECONDS = 600  # 10 minutes
 POLL_INTERVAL_SECONDS = 3
 MAX_AI_RETRIES = 1
 
@@ -25,6 +26,9 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
 
         start_time_total = time.time()
 
+        # ---------------------------
+        # 1️⃣ Start CloudWatch Query
+        # ---------------------------
         start_response = start_logs_query(
             client=client,
             log_groups=request["log_groups"],
@@ -35,48 +39,18 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
 
         query_id = start_response.get("queryId")
 
+        # ---------------------------
+        # 2️⃣ Poll for Completion
+        # ---------------------------
         elapsed = 0
+        query_completion_time = None
 
         while elapsed < MAX_WAIT_SECONDS:
             response = get_query_results(client, query_id)
             status = response.get("status")
 
             if status == "Complete":
-                results = response.get("results", [])
-                limited_results = results[: config["max_records_for_summary"]]
-
-                prompt, prompt_truncated = build_prompt(limited_results)
-
-                retry_count = 0
-
-                while retry_count <= MAX_AI_RETRIES:
-                    try:
-                        ai_response = invoke_bedrock(
-                            model_id=config["inference_profile_id"],
-                            prompt=prompt,
-                        )
-
-                        validate_summary_schema(ai_response)
-
-                        total_latency = round(
-                            time.time() - start_time_total, 2
-                        )
-
-                        return {
-                            "query_id": query_id,
-                            "ai_summary": ai_response,
-                            "metadata": {
-                                "retry_count": retry_count,
-                                "total_latency_seconds": total_latency,
-                                "prompt_truncated": prompt_truncated,
-                            },
-                        }
-
-                    except Exception:
-                        retry_count += 1
-                        if retry_count > MAX_AI_RETRIES:
-                            raise
-
+                query_completion_time = time.time()
                 break
 
             if status in ["Failed", "Cancelled", "Timeout"]:
@@ -87,9 +61,79 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
             time.sleep(POLL_INTERVAL_SECONDS)
             elapsed += POLL_INTERVAL_SECONDS
 
-        raise AgentExecutionError(
-            "Query did not complete within 10 minutes."
+        if query_completion_time is None:
+            raise AgentExecutionError(
+                "Query did not complete within 10 minutes."
+            )
+
+        # ---------------------------
+        # 3️⃣ Prepare Results for LLM
+        # ---------------------------
+        results = response.get("results", [])
+        limited_results = results[: config["max_records_for_summary"]]
+
+        prompt, prompt_truncated = build_prompt(limited_results)
+
+        # ---------------------------
+        # 4️⃣ Invoke Bedrock (with retry)
+        # ---------------------------
+        retry_count = 0
+        bedrock_latency = 0
+
+        while retry_count <= MAX_AI_RETRIES:
+            try:
+                ai_response, bedrock_latency = invoke_bedrock(
+                    model_id=config["inference_profile_id"],
+                    prompt=prompt,
+                )
+
+                validate_summary_schema(ai_response)
+                break
+
+            except Exception:
+                retry_count += 1
+                if retry_count > MAX_AI_RETRIES:
+                    raise
+
+        # ---------------------------
+        # 5️⃣ Latency Breakdown
+        # ---------------------------
+        query_latency = round(
+            query_completion_time - start_time_total, 3
         )
+
+        total_latency = round(
+            time.time() - start_time_total, 3
+        )
+
+        # ---------------------------
+        # 6️⃣ Structured Logging
+        # ---------------------------
+        log_payload = {
+            "query_id": query_id,
+            "retry_count": retry_count,
+            "query_latency_seconds": query_latency,
+            "bedrock_latency_seconds": bedrock_latency,
+            "total_latency_seconds": total_latency,
+            "prompt_truncated": prompt_truncated,
+        }
+
+        print(json.dumps(log_payload))
+
+        # ---------------------------
+        # 7️⃣ Return Response
+        # ---------------------------
+        return {
+            "query_id": query_id,
+            "ai_summary": ai_response,
+            "metadata": {
+                "retry_count": retry_count,
+                "query_latency_seconds": query_latency,
+                "bedrock_latency_seconds": bedrock_latency,
+                "total_latency_seconds": total_latency,
+                "prompt_truncated": prompt_truncated,
+            },
+        }
 
     except Exception as exc:
         raise AgentExecutionError(str(exc)) from exc
