@@ -15,12 +15,15 @@ from summary_schema import validate_summary_schema
 
 MAX_WAIT_SECONDS = 600
 POLL_INTERVAL_SECONDS = 3
+MAX_AI_RETRIES = 1
 
 
 def execute(request: Dict[str, Any]) -> Dict[str, Any]:
     try:
         config = load_config()
         client = get_logs_client(request["region"])
+
+        start_time_total = time.time()
 
         start_response = start_logs_query(
             client=client,
@@ -40,22 +43,40 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
 
             if status == "Complete":
                 results = response.get("results", [])
-
                 limited_results = results[: config["max_records_for_summary"]]
 
                 prompt = build_prompt(limited_results)
 
-                ai_response = invoke_bedrock(
-                    model_id=config["inference_profile_id"],
-                    prompt=prompt,
-                )
+                retry_count = 0
 
-                validate_summary_schema(ai_response)
+                while retry_count <= MAX_AI_RETRIES:
+                    try:
+                        ai_response = invoke_bedrock(
+                            model_id=config["inference_profile_id"],
+                            prompt=prompt,
+                        )
 
-                return {
-                    "query_id": query_id,
-                    "ai_summary": ai_response,
-                }
+                        validate_summary_schema(ai_response)
+
+                        total_latency = round(
+                            time.time() - start_time_total, 2
+                        )
+
+                        return {
+                            "query_id": query_id,
+                            "ai_summary": ai_response,
+                            "metadata": {
+                                "retry_count": retry_count,
+                                "total_latency_seconds": total_latency,
+                            },
+                        }
+
+                    except Exception:
+                        retry_count += 1
+                        if retry_count > MAX_AI_RETRIES:
+                            raise
+
+                break
 
             if status in ["Failed", "Cancelled", "Timeout"]:
                 raise AgentExecutionError(

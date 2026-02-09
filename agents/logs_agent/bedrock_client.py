@@ -4,20 +4,13 @@ import re
 
 
 def extract_json(text: str) -> dict:
-    """
-    Extract JSON object from model output.
-    Handles markdown wrapping and extra text.
-    """
-    # Remove markdown code fences if present
     text = re.sub(r"```json|```", "", text).strip()
 
-    # Try direct parse first
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # Try to extract JSON object from text
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         return json.loads(match.group())
