@@ -45,7 +45,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
                 results = response.get("results", [])
                 limited_results = results[: config["max_records_for_summary"]]
 
-                prompt = build_prompt(limited_results)
+                prompt, prompt_truncated = build_prompt(limited_results)
 
                 retry_count = 0
 
@@ -68,6 +68,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
                             "metadata": {
                                 "retry_count": retry_count,
                                 "total_latency_seconds": total_latency,
+                                "prompt_truncated": prompt_truncated,
                             },
                         }
 

@@ -1,7 +1,10 @@
 import json
 
-def build_prompt(results: list) -> str:
-    return f"""
+MAX_PROMPT_CHARS = 50000
+
+
+def build_prompt(results: list) -> tuple[str, bool]:
+    base_prompt = f"""
 You are a CloudWatch Logs Insights summarization engine.
 
 Use ONLY the provided data.
@@ -23,3 +26,9 @@ Return STRICT JSON with this schema:
 CloudWatch Results:
 {json.dumps(results, indent=2)}
 """
+
+    if len(base_prompt) > MAX_PROMPT_CHARS:
+        truncated_prompt = base_prompt[:MAX_PROMPT_CHARS]
+        return truncated_prompt, True
+
+    return base_prompt, False
