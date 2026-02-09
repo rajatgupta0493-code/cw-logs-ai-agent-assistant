@@ -2,16 +2,17 @@ import time
 import json
 from typing import Any, Dict
 
-from exceptions import AgentExecutionError
-from cloudwatch_client import (
+from agents.logs_agent.exceptions import AgentExecutionError
+from agents.logs_agent.cloudwatch_client import (
     get_logs_client,
     start_logs_query,
     get_query_results,
 )
-from config_loader import load_config
-from prompt_builder import build_prompt
-from bedrock_client import invoke_bedrock
-from summary_schema import validate_summary_schema
+from agents.logs_agent.config_loader import load_config
+from agents.logs_agent.prompt_builder import build_prompt
+
+from core.ai_runtime import invoke_bedrock
+from core.schema_validator import validate_summary_schema
 
 
 MAX_WAIT_SECONDS = 600  # 10 minutes
@@ -26,9 +27,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
 
         start_time_total = time.time()
 
-        # ---------------------------
-        # 1️⃣ Start CloudWatch Query
-        # ---------------------------
+        # 1️⃣ Start Logs Insights Query
         start_response = start_logs_query(
             client=client,
             log_groups=request["log_groups"],
@@ -39,9 +38,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
 
         query_id = start_response.get("queryId")
 
-        # ---------------------------
         # 2️⃣ Poll for Completion
-        # ---------------------------
         elapsed = 0
         query_completion_time = None
 
@@ -66,17 +63,13 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
                 "Query did not complete within 10 minutes."
             )
 
-        # ---------------------------
         # 3️⃣ Prepare Results for LLM
-        # ---------------------------
         results = response.get("results", [])
         limited_results = results[: config["max_records_for_summary"]]
 
         prompt, prompt_truncated = build_prompt(limited_results)
 
-        # ---------------------------
         # 4️⃣ Invoke Bedrock (with retry)
-        # ---------------------------
         retry_count = 0
         bedrock_latency = 0
 
@@ -95,9 +88,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
                 if retry_count > MAX_AI_RETRIES:
                     raise
 
-        # ---------------------------
         # 5️⃣ Latency Breakdown
-        # ---------------------------
         query_latency = round(
             query_completion_time - start_time_total, 3
         )
@@ -106,9 +97,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
             time.time() - start_time_total, 3
         )
 
-        # ---------------------------
         # 6️⃣ Structured Logging
-        # ---------------------------
         log_payload = {
             "query_id": query_id,
             "retry_count": retry_count,
@@ -120,9 +109,7 @@ def execute(request: Dict[str, Any]) -> Dict[str, Any]:
 
         print(json.dumps(log_payload))
 
-        # ---------------------------
         # 7️⃣ Return Response
-        # ---------------------------
         return {
             "query_id": query_id,
             "ai_summary": ai_response,

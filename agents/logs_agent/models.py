@@ -1,7 +1,6 @@
 from typing import Any, Dict, List
 
-from exceptions import ValidationError
-
+from agents.logs_agent.exceptions import ValidationError
 
 REQUIRED_FIELDS = ["region", "log_groups", "query", "start_time", "end_time"]
 

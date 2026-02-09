@@ -1,9 +1,8 @@
 from typing import Any, Dict
 
-from exceptions import ValidationError, AgentExecutionError
-from models import validate_request
-from service import execute
-
+from agents.logs_agent.models import validate_request
+from agents.logs_agent.exceptions import ValidationError, AgentExecutionError
+from agents.logs_agent.service import execute
 
 def build_response(status: str, data: Dict[str, Any] = None, error: Dict[str, str] = None):
     return {

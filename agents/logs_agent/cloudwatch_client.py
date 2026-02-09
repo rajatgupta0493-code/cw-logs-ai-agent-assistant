@@ -1,5 +1,6 @@
 import boto3
 from typing import Dict, Any
+from agents.logs_agent.exceptions import AgentExecutionError
 
 
 def get_logs_client(region: str):

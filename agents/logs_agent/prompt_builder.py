@@ -1,6 +1,5 @@
 import json
-
-MAX_PROMPT_CHARS = 50000
+from core.prompt_guardrails import apply_prompt_guardrail
 
 
 def build_prompt(results: list) -> tuple[str, bool]:
@@ -27,8 +26,4 @@ CloudWatch Results:
 {json.dumps(results, indent=2)}
 """
 
-    if len(base_prompt) > MAX_PROMPT_CHARS:
-        truncated_prompt = base_prompt[:MAX_PROMPT_CHARS]
-        return truncated_prompt, True
-
-    return base_prompt, False
+    return apply_prompt_guardrail(base_prompt)
