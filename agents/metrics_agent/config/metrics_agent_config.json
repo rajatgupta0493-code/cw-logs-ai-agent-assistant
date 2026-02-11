@@ -1,1 +1,4 @@
-{}
+{
+  "inference_profile_id": "us.anthropic.claude-opus-4-6-v1",
+  "max_metrics_for_summary": 10
+}

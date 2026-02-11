@@ -65,9 +65,11 @@ class LogsAgentStack(Stack):
             iam.PolicyStatement(
                 actions=[
                     "cloudwatch:GetMetricData",
+                    "bedrock:InvokeModel"
                 ],
                 resources=["*"],
             )
         )
+
 
 
