@@ -1,0 +1,5 @@
+{
+  "region": "us-east-1",
+  "alarm_names": ["CWAgentTest-ErrorAlarm"],
+  "history_days": 2
+}

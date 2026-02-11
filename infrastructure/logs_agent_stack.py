@@ -50,6 +50,36 @@ class LogsAgentStack(Stack):
             timeout=Duration.minutes(15),
 )
 
+        alarm_function = _lambda.Function(
+            self,
+            "AlarmAgentFunction",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="agents.alarms_agent.handler.handler",
+            code=_lambda.Code.from_asset(
+                        ".",
+                        exclude=[
+                            "cdk.out",
+                            ".venv",
+                            ".git",
+                            "node_modules",
+                            "__pycache__",
+                            "*.pyc",
+                        ],
+                    ),
+            memory_size=10240,
+            timeout=Duration.minutes(15),
+        )
+
+        alarm_function.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cloudwatch:DescribeAlarms",
+                    "cloudwatch:DescribeAlarmHistory"
+                ],
+                resources=["*"],
+            )
+        )
+
         function.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
