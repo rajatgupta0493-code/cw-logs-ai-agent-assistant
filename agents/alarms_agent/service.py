@@ -1,9 +1,17 @@
 import boto3
+import time
 from datetime import datetime, timedelta
+
 from core.exceptions import AgentExecutionError
+from core.ai_runtime import invoke_bedrock
+from .prompt_builder import build_alarm_prompt
 
 
 def fetch_alarms(region: str, alarm_names: list, history_days: int) -> dict:
+    """
+    Fetch raw alarm state and history from CloudWatch.
+    """
+
     try:
         cw = boto3.client("cloudwatch", region_name=region)
 
@@ -37,6 +45,7 @@ def fetch_alarms(region: str, alarm_names: list, history_days: int) -> dict:
                     "summary": item.get("HistorySummary"),
                 }
                 for item in history_items
+                if item.get("Timestamp") is not None
             ]
 
             result.append({
@@ -50,4 +59,38 @@ def fetch_alarms(region: str, alarm_names: list, history_days: int) -> dict:
         return {"alarms": result}
 
     except Exception as e:
-        raise AgentExecutionError(str(e))
+        raise AgentExecutionError(f"Failed to fetch alarms: {str(e)}")
+
+
+def analyze_alarms(alarm_data: dict, model_id: str) -> dict:
+    """
+    Send alarm data to Bedrock for AI-based pattern detection.
+    """
+
+    try:
+        start_time = time.time()
+
+        prompt = build_alarm_prompt(alarm_data)
+
+        ai_start = time.time()
+
+        ai_response = invoke_bedrock(
+            model_id=model_id,
+            prompt=prompt
+        )
+
+        ai_latency = round(time.time() - ai_start, 3)
+        total_latency = round(time.time() - start_time, 3)
+
+        return {
+            "ai_summary": ai_response,
+            "metadata": {
+                "retry_count": 0,
+                "bedrock_latency_seconds": ai_latency,
+                "total_latency_seconds": total_latency,
+                "prompt_truncated": False
+            }
+        }
+
+    except Exception as e:
+        raise AgentExecutionError(f"Alarm AI analysis failed: {str(e)}")

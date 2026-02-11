@@ -74,7 +74,8 @@ class LogsAgentStack(Stack):
             iam.PolicyStatement(
                 actions=[
                     "cloudwatch:DescribeAlarms",
-                    "cloudwatch:DescribeAlarmHistory"
+                    "cloudwatch:DescribeAlarmHistory",
+                    "bedrock:InvokeModel"
                 ],
                 resources=["*"],
             )
